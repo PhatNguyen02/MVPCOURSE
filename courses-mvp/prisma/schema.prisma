@@ -1,0 +1,228 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// --- ENUMS ---
+enum PaymentStatus {
+  PENDING
+  SUCCESS
+  FAILED
+  CANCELLED
+  REJECTED
+}
+
+enum UserRole {
+  ADMIN
+  USER
+}
+
+// --- 1. NEXTAUTH MODELS (Giữ nguyên map để NextAuth hoạt động) ---
+// ... (Phần datasource giữ nguyên)
+
+// --- 1. NEXTAUTH MODELS (SỬA LẠI MAP) ---
+
+model Account {
+  id                String  @id @default(uuid()) @db.Uuid
+  // 👇 SỬA: Đổi tên biến thành userId (để Adapter hiểu), nhưng map vào cột user_id
+  userId            String  @map("user_id") @db.Uuid 
+  type              String
+  provider          String
+  // 👇 SỬA: Đổi tên biến thành providerAccountId
+  providerAccountId String  @map("provider_account_id")
+  
+  // Các trường token thường NextAuth tự map, nhưng để chắc chắn ta dùng camelCase ở biến
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  // 👇 SỬA: Relation dùng userId
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@map("accounts")
+}
+
+model Session {
+  id           String   @id @default(uuid()) @db.Uuid
+  sessionToken String   @unique @map("session_token")
+  
+  // 👇 SỬA: Đổi thành userId
+  userId       String   @map("user_id") @db.Uuid
+  
+  expires      DateTime
+  
+  // 👇 SỬA: Relation dùng userId
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}
+
+model VerificationToken {
+  identifier String
+  token      String
+  expires    DateTime
+
+  @@unique([identifier, token])
+  @@map("verification_tokens")
+}
+
+model User {
+  id            String    @id @default(uuid()) @db.Uuid
+  name          String?
+  email         String?   @unique
+  // 👇 SỬA: Đổi thành emailVerified
+  emailVerified DateTime? @map("email_verified")
+  image         String?
+  role          UserRole  @default(USER)
+
+  accounts     Account[]
+  sessions     Session[]
+  
+  // Các quan hệ khác giữ nguyên
+  logs         Log[]
+  orders       Order[]
+  user_courses UserCourse[]
+
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  updated_at DateTime @default(now()) @updatedAt @db.Timestamptz(6)
+
+  @@map("users")
+}
+
+// ... (Các Model Business phía dưới như Course, Order... thì giữ nguyên snake_case được vì NextAuth không đụng vào chúng)
+
+// --- 2. BUSINESS MODELS (SNAKE_CASE TOÀN TẬP) ---
+
+model Category {
+  id         String   @id @default(uuid()) @db.Uuid
+  name       String   @unique
+  courses    Course[]
+  description String?  // Optional description field
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  updated_at DateTime @default(now()) @updatedAt @db.Timestamptz(6)
+
+  @@map("categories")
+}
+
+model Course {
+  id               String   @id @default(uuid()) @db.Uuid
+  title            String
+  description      String?
+  price            Decimal  @default(0) @db.Decimal(12, 2)
+  
+  // Dùng tên biến snake_case luôn để khớp code cũ
+  drive_folder_url String? 
+  thumbnail_url    String? 
+  is_published     Boolean  @default(false)
+
+  // Khóa ngoại cũng snake_case
+  category_id      String?  @db.Uuid
+  
+  category         Category? @relation(fields: [category_id], references: [id])
+  lessons          Lesson[]
+  orders           Order[]
+  user_courses     UserCourse[]
+
+  created_at       DateTime @default(now()) @db.Timestamptz(6)
+  updated_at       DateTime @default(now()) @updatedAt @db.Timestamptz(6)
+
+  @@map("courses")
+  @@index([is_published], map: "idx_courses_published")
+}
+
+model Lesson {
+  id              String   @id @default(uuid()) @db.Uuid
+  title           String
+  drive_video_url String?
+  sort_order      Int      @default(0)
+  
+  course_id       String   @db.Uuid
+  course          Course   @relation(fields: [course_id], references: [id], onDelete: Cascade)
+
+  created_at      DateTime @default(now()) @db.Timestamptz(6)
+  updated_at      DateTime @default(now()) @updatedAt @db.Timestamptz(6)
+
+  @@map("lessons")
+  @@index([course_id], map: "idx_lessons_course_id")
+}
+
+model Order {
+  id             String        @id @default(uuid()) @db.Uuid
+  code           String        @unique
+  amount         Decimal       @db.Decimal(12, 2)
+  customer_email String
+  customer_name  String
+  status         PaymentStatus @default(PENDING)
+  proof_url      String?       
+  admin_note     String?       
+
+  user_id        String?       @db.Uuid
+  course_id      String        @db.Uuid
+
+  course         Course        @relation(fields: [course_id], references: [id], onDelete: Cascade)
+  user           User?         @relation(fields: [user_id], references: [id], onDelete: SetNull)
+  payments       Payment[]
+
+  created_at     DateTime      @default(now()) @db.Timestamptz(6)
+  updated_at     DateTime      @default(now()) @updatedAt @db.Timestamptz(6)
+
+  @@map("orders")
+  @@index([course_id], map: "idx_orders_course_id")
+  @@index([status], map: "idx_orders_status")
+  @@index([user_id], map: "idx_orders_user_id")
+}
+
+model Payment {
+  id          String   @id @default(uuid()) @db.Uuid
+  amount      Decimal  @db.Decimal(12, 2)
+  paid_at     DateTime @default(now()) @db.Timestamptz(6)
+  qr_code_url String?
+  
+  order_id    String   @db.Uuid
+  order       Order    @relation(fields: [order_id], references: [id], onDelete: Cascade)
+
+  created_at  DateTime @default(now()) @db.Timestamptz(6)
+
+  @@map("payments")
+  @@index([order_id], map: "idx_payments_order_id")
+}
+
+model UserCourse {
+  id           String   @id @default(uuid()) @db.Uuid
+  purchased_at DateTime @default(now()) @db.Timestamptz(6)
+
+  user_id      String   @db.Uuid
+  course_id    String   @db.Uuid
+
+  course       Course   @relation(fields: [course_id], references: [id], onDelete: Cascade)
+  user         User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@map("user_courses")
+  @@unique([user_id, course_id])
+  @@index([course_id], map: "idx_user_courses_course")
+  @@index([user_id], map: "idx_user_courses_user")
+}
+
+model Log {
+  id         String   @id @default(uuid()) @db.Uuid
+  action     String
+  metadata   Json?
+  
+  user_id    String?  @db.Uuid
+  user       User?    @relation(fields: [user_id], references: [id])
+
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+
+  @@map("logs")
+  @@index([user_id], map: "idx_logs_user")
+}

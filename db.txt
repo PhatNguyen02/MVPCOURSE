@@ -1,0 +1,204 @@
+-- =====================================================
+-- USERS (kết hợp Supabase Auth)
+-- =====================================================
+create table if not exists users (
+  id uuid primary key,
+  email text unique not null,
+  name text,
+  created_at timestamptz default now()
+);
+
+-- Index để tăng tốc truy vấn
+create index if not exists idx_users_email on users(email);
+
+
+-- =====================================================
+-- COURSES
+-- =====================================================
+create table if not exists courses (
+  id uuid primary key default uuid_generate_v4(),
+  title text not null,
+  description text,
+  price numeric(12, 2) not null,
+  drive_folder_url text,
+  thumbnail_url text,
+  is_published boolean default false,
+  created_at timestamptz default now(),
+  updated_at timestamptz default now()
+);
+
+create index if not exists idx_courses_published on courses(is_published);
+
+
+-- =====================================================
+-- LESSONS (bài học con trong khóa)
+-- =====================================================
+create table if not exists lessons (
+  id uuid primary key default uuid_generate_v4(),
+  course_id uuid references courses(id) on delete cascade,
+  title text not null,
+  drive_video_url text,
+  sort_order integer default 0,
+  created_at timestamptz default now()
+);
+
+create index if not exists idx_lessons_course_id on lessons(course_id);
+
+
+-- =====================================================
+-- ORDERS (đơn hàng mua khóa)
+-- =====================================================
+create table if not exists orders (
+  id uuid primary key default uuid_generate_v4(),
+  user_id uuid references users(id) on delete cascade,
+  course_id uuid references courses(id) on delete cascade,
+  price numeric(12, 2) not null,
+  status payment_status default 'pending',
+  created_at timestamptz default now(),
+  updated_at timestamptz default now()
+);
+
+create index if not exists idx_orders_user_id on orders(user_id);
+create index if not exists idx_orders_course_id on orders(course_id);
+create index if not exists idx_orders_status on orders(status);
+
+
+-- =====================================================
+-- PAYMENTS (lưu QR, giao dịch)
+-- =====================================================
+create table if not exists payments (
+  id uuid primary key default uuid_generate_v4(),
+  order_id uuid references orders(id) on delete cascade,
+  qr_code_url text,
+  paid_at timestamptz,
+  amount numeric(12, 2),
+  created_at timestamptz default now()
+);
+
+create index if not exists idx_payments_order_id on payments(order_id);
+
+
+-- =====================================================
+-- USER COURSES (người mua khóa nào)
+-- =====================================================
+create table if not exists user_courses (
+  id uuid primary key default uuid_generate_v4(),
+  user_id uuid references users(id) on delete cascade,
+  course_id uuid references courses(id) on delete cascade,
+  purchased_at timestamptz default now(),
+  
+  unique (user_id, course_id)
+);
+
+create index if not exists idx_user_courses_user on user_courses(user_id);
+create index if not exists idx_user_courses_course on user_courses(course_id);
+-- =====================================================
+-- USERS (kết hợp Supabase Auth)
+-- =====================================================
+create table if not exists users (
+  id uuid primary key,
+  email text unique not null,
+  name text,
+  created_at timestamptz default now()
+);
+
+-- Index để tăng tốc truy vấn
+create index if not exists idx_users_email on users(email);
+
+
+-- =====================================================
+-- COURSES
+-- =====================================================
+create table if not exists courses (
+  id uuid primary key default uuid_generate_v4(),
+  title text not null,
+  description text,
+  price numeric(12, 2) not null,
+  drive_folder_url text,
+  thumbnail_url text,
+  is_published boolean default false,
+  created_at timestamptz default now(),
+  updated_at timestamptz default now()
+);
+
+create index if not exists idx_courses_published on courses(is_published);
+
+
+-- =====================================================
+-- LESSONS (bài học con trong khóa)
+-- =====================================================
+create table if not exists lessons (
+  id uuid primary key default uuid_generate_v4(),
+  course_id uuid references courses(id) on delete cascade,
+  title text not null,
+  drive_video_url text,
+  sort_order integer default 0,
+  created_at timestamptz default now()
+);
+
+create index if not exists idx_lessons_course_id on lessons(course_id);
+
+
+-- =====================================================
+-- ORDERS (đơn hàng mua khóa)
+-- =====================================================
+create table if not exists orders (
+  id uuid primary key default uuid_generate_v4(),
+  user_id uuid references users(id) on delete cascade,
+  course_id uuid references courses(id) on delete cascade,
+  price numeric(12, 2) not null,
+  status payment_status default 'pending',
+  created_at timestamptz default now(),
+  updated_at timestamptz default now()
+);
+
+create index if not exists idx_orders_user_id on orders(user_id);
+create index if not exists idx_orders_course_id on orders(course_id);
+create index if not exists idx_orders_status on orders(status);
+
+
+-- =====================================================
+-- PAYMENTS (lưu QR, giao dịch)
+-- =====================================================
+create table if not exists payments (
+  id uuid primary key default uuid_generate_v4(),
+  order_id uuid references orders(id) on delete cascade,
+  qr_code_url text,
+  paid_at timestamptz,
+  amount numeric(12, 2),
+  created_at timestamptz default now()
+);
+
+create index if not exists idx_payments_order_id on payments(order_id);
+
+
+-- =====================================================
+-- USER COURSES (người mua khóa nào)
+-- =====================================================
+create table if not exists user_courses (
+  id uuid primary key default uuid_generate_v4(),
+  user_id uuid references users(id) on delete cascade,
+  course_id uuid references courses(id) on delete cascade,
+  purchased_at timestamptz default now(),
+  
+  unique (user_id, course_id)
+);
+
+create index if not exists idx_user_courses_user on user_courses(user_id);
+create index if not exists idx_user_courses_course on user_courses(course_id);
+
+
+-- =====================================================
+-- LOGS (ghi lại hành động của user)
+-- =====================================================
+create table if not exists logs (
+  id uuid primary key default uuid_generate_v4(),
+  user_id uuid references users(id) on delete set null,
+  action text,
+  metadata jsonb,
+  created_at timestamptz default now()
+);
+
+create index if not exists idx_logs_user on logs(user_id);
+
+
