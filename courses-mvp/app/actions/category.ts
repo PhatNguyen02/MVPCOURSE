@@ -9,11 +9,16 @@ interface CategoryFormState {
   name: string;
   description?: string;
 }
+interface CategoryFormState {
+  id?: string | number;
+  name: string;
+  description?: string;
+}
 
 export async function upsertCategory(data: CategoryFormState) {
   try {
     // 1. Kiểm tra dữ liệu cơ bản
-    if (!data.name) {
+    if (!data.name || data.name.trim() === "") {
       return { success: false, message: "Tên danh mục không được để trống" };
     }
 
@@ -21,7 +26,7 @@ export async function upsertCategory(data: CategoryFormState) {
     if (data.id) {
       // --- UPDATE ---
       await prisma.category.update({
-        where: { id: String(data.id) }, // Đảm bảo ID là string nếu DB dùng UUID
+        where: { id: String(data.id) },
         data: {
           name: data.name,
           description: data.description,
@@ -37,12 +42,24 @@ export async function upsertCategory(data: CategoryFormState) {
       });
     }
 
-    // 3. RevalidatePath: Làm mới dữ liệu trên trang Admin ngay lập tức mà không cần F5
-    revalidatePath("/admin/categories"); // Thay đường dẫn này bằng đường dẫn thực tế của trang bạn
+    // 3. RevalidatePath: Quan trọng để làm mới dữ liệu
+    // ⚠️ LƯU Ý: Kiểm tra kỹ đường dẫn này trùng khớp với thư mục app/admin/... của bạn
+    revalidatePath("/admin/category");
 
-    return { success: true, message: "Thành công!" };
-  } catch (error) {
+    return { success: true, message: "Lưu thành công!" };
+  } catch (error: any) {
     console.error("Lỗi Server Action:", error);
+
+    // 👇 ĐOẠN CODE MỚI THÊM VÀO ĐÂY
+    // P2002 là mã lỗi của Prisma khi vi phạm "Unique constraint" (trùng lặp)
+    if (error.code === "P2002") {
+      return {
+        success: false,
+        message: "Tên danh mục này đã tồn tại! Vui lòng chọn tên khác.",
+      };
+    }
+
+    // Lỗi không xác định
     return { success: false, message: "Đã có lỗi xảy ra khi lưu dữ liệu." };
   }
 }

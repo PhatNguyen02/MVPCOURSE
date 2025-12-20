@@ -222,9 +222,36 @@ export const CourseForm = ({
               )}
             </div>
 
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1.5">Trạng thái</label>
+              <div className="flex bg-gray-100 p-1 rounded-lg select-none">
+                {["Draft", "Published"].map((status) => (
+                  <button
+                    key={status}
+                    type="button" // 👈 Bắt buộc phải có để không bị submit form nhầm
+                    onClick={() => {
+                      // Cập nhật giá trị vào form thủ công
+                      setValue("status", status as "Draft" | "Published", {
+                        shouldValidate: true, // Kiểm tra lỗi ngay lập tức
+                        shouldDirty: true, // Đánh dấu form đã bị thay đổi
+                      });
+                    }}
+                    className={`flex-1 text-xs font-medium py-1.5 rounded-md transition-all ${
+                      currentStatus === status // 👈 Dùng biến currentStatus đã watch ở trên
+                        ? "bg-white text-gray-900 shadow-sm font-semibold"
+                        : "text-gray-500 hover:text-gray-700 hover:bg-gray-200/50"
+                    }`}
+                  >
+                    {status === "Draft" ? "Bản nháp" : "Công khai"}
+                  </button>
+                ))}
+              </div>
+              {/* Input ẩn để hứng lỗi validation nếu cần */}
+              <input type="hidden" {...register("status")} />
+            </div>
             {/* Price */}
             <div>
-              <label className="text-xs font-medium block mb-1">Giá (VND)</label>
+              <label className="w-full text-xs font-medium block mb-1">Giá (VND)</label>
               <input
                 type="number"
                 {...register("price")}

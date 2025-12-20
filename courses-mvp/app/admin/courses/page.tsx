@@ -31,7 +31,7 @@ export default async function Page() {
   return (
     <div className="p-6 max-w-7xl mx-auto">
       <h1 className="text-2xl font-bold mb-6">Quản lý khóa học</h1>
-
+    
       {/* Truyền biến 'courses' đã được xử lý (không dùng rawCourses) */}
       <CourseDataTable data={courses} categories={categories} />
     </div>

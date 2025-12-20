@@ -53,6 +53,7 @@ export default function CourseDataTable({ data, categories }: CourseDataTablePro
               <th className="px-6 py-4">Tên khóa học</th>
               <th className="px-6 py-4">Giá</th>
               <th className="px-6 py-4">Trạng thái</th>
+              <th className="px-6 py-4">Loại</th>
               <th className="px-6 py-4 text-right">Hành động</th>
             </tr>
           </thead>
@@ -75,6 +76,17 @@ export default function CourseDataTable({ data, categories }: CourseDataTablePro
                   >
                     {course.is_published ? "Published" : "Draft"}
                   </span>
+                </td>
+                <td className="px-6 py-4">
+                  {categories.map((cat) => {
+                    if (course.category_id === cat.id) {
+                      return <div key={cat.id}>{cat.name}</div>;
+                    }
+                    {
+                      console.log(course.categoryId, cat.id);
+                    }
+                    return null;
+                  })}
                 </td>
                 <td className="px-6 py-4 text-right">
                   <button
